@@ -169,7 +169,14 @@ void list_remove_by_id(node** element,int event_id)
 	}
 }
 
-
+event* list_find_by_id(node* element, int event_id) {
+    while (element) {
+        if (element->data.id == event_id)
+            return &element->data;
+        element = element->next;
+    }
+    return NULL;
+}
 
 #define LINE_MAX_LENGTH	80
 
@@ -252,15 +259,70 @@ void add_event(node** element)
 	strcpy(line_buffer, "");
 
 
-	printf("\nEvent o id: %d zostala dodana",e.id);
+	list_add_event(element, &e);
+	printf("\nEvent o id: %d zostala dodana\n",e.id);
 }
 
 void remove_event(node** element)
 {
 	int event_id;
-	//read_int("Podaj id eventu do usuniecia", &event_id);
-	list_remove_by_id(element, event_id);
-	printf("usunieta wydarzenie");
+	read("\nPodaj id osoby> ");
+	event_id = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	event* e = list_find_by_id(*element, event_id);
+	  if(e == NULL)
+	  {
+	    printf("Brak wydarzenia o id: %d\n",event_id);
+	    return;
+	  }
+	  list_remove_by_id(element, event_id);
+	  printf("usunieta wydarzenie o id %d\n", event_id);
+}
+
+void edit_event(node* element)
+{
+  int id;
+  char tab[17];
+  int zmienna;
+  read("\nPodaj id osoby> ");
+  id = atoi(line_buffer);
+  strcpy(line_buffer, "");
+  event *e = list_find_by_id(element, id);
+  if(e == NULL)
+  {
+    printf("Brak wydarzenia o id: %d\n",id);
+    return;
+  }
+
+  read("\nPodaj nazwe eventu> ");
+  for (int i = 0; line_buffer[i] != '\0'; i++)
+	  tab[i] = line_buffer[i];
+
+  strcpy(line_buffer, "");
+  strcpy(e->description,tab);
+
+  	read("\nPodaj dzien> ");
+  	zmienna = atoi(line_buffer);
+  	strcpy(line_buffer, "");
+  	e->day = zmienna;
+  	read("\nPodaj miesiac> ");
+  	zmienna = atoi(line_buffer);
+  	strcpy(line_buffer, "");
+  	e->month = zmienna;
+  	read("\nPodaj rok> ");
+  	zmienna = atoi(line_buffer);
+  	strcpy(line_buffer, "");
+  	e->year = zmienna;
+  	read("\nPodaj godzine> ");
+  	zmienna = atoi(line_buffer);
+  	strcpy(line_buffer, "");
+  	e->hour = zmienna;
+  	read("\nPodaj minute> ");
+  	zmienna = atoi(line_buffer);
+  	strcpy(line_buffer, "");
+  	e->minutes = zmienna;
+  printf("Zmodyfikowano dane wydarzenia o id: %d\n", e->id);
 }
 
 void menu(){
@@ -271,6 +333,7 @@ void menu(){
 		printf("1 Dodaj event\n");
 		printf("2 wyswietl liste\n");
 		printf("3 usun po id\n");
+		printf("4 edytuj po id\n");
 		//scanf("%d", &option);
 		while(1){
 			if (HAL_UART_Receive(&huart2, &ch, 1, 0) == HAL_OK){
@@ -289,11 +352,13 @@ void menu(){
 		case '3':
 			remove_event(&element);
 			break;
+		case '4':
+			edit_event(&element);
 		default:
 			printf("brak opcji");
 		}
 
-	} while(ch != '3');
+	} while(ch != '4');
 }
 
 /* USER CODE END 0 */
