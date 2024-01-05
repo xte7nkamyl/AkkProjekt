@@ -79,11 +79,12 @@ int __io_putchar(int ch)
 }
 int __io_getchar(void)
 {
-uint8_t ch;
-HAL_UART_Receive(&huart2, &ch, 1, HAL_MAX_DELAY);
-//if (ch == '\n') {
-//return '\n';
-return ch;
+	char ch;
+	HAL_UART_Receive(&huart2, &ch, 1, HAL_MAX_DELAY);
+	fflush(stdout);
+	//if (ch == '\n') {
+	//return '\n';
+	return ch;
 }
 
 char* __io_gets(char* buffer, int size)
@@ -168,74 +169,131 @@ void list_remove_by_id(node** element,int event_id)
 	}
 }
 
-void read_int(const char* promt, int *n)
+
+
+#define LINE_MAX_LENGTH	80
+
+static char line_buffer[LINE_MAX_LENGTH + 1];
+static uint32_t line_length;
+
+void line_append(uint8_t value)
 {
-	printf("%s", promt);
-	scanf("%d",n);
-	fflush(stdin);
+	if (value == '\r' || value == '\n') {
+		// odebraliśmy znak końca linii
+		if (line_length > 0) {
+			// jeśli bufor nie jest pusty to dodajemy 0 na końcu linii
+			line_buffer[line_length] = '\0';
+			// przetwarzamy dane
+			printf("Otrzymano: %s\n", line_buffer);
+			// zaczynamy zbieranie danych od nowa
+			line_length = 0;
+		}
+	}
+	else {
+		if (line_length >= LINE_MAX_LENGTH) {
+			// za dużo danych, usuwamy wszystko co odebraliśmy dotychczas
+			line_length = 0;
+		}
+		// dopisujemy wartość do bufora
+		line_buffer[line_length++] = value;
+	}
 }
 
-void read_string(const char* promt, char* dest, int size)
+
+void read(const char* promt)
 {
-	printf(promt);
-	char buf[size];
-	fgets(buf,size,stdin);
-	int len = strlen(buf);
-	if(len > 0)
-	{
-		if(buf[len - 1] == '\n')
-			buf[len - 1] = 0;
-		strcpy(dest,buf);
+	printf("%s", promt);
+	fflush(stdout);
+	uint8_t value;
+
+	while(1){
+		if (HAL_UART_Receive(&huart2, &value, 1, 0) == HAL_OK){
+			  line_append(value);
+			  if (value == '\r' || value == '\n') break;
+		}
 	}
+
 	fflush(stdin);
 }
 
 void add_event(node** element)
 {
+	uint8_t value;
 	event e;
-	read_int("Podaj id osoby> ", &e.id);
-	read_string("Podaj nazwe eventu> ", e.description, 17);
-	read_int("Podaj dzien> ", &e.day);
-	read_int("Podaj miesiac> ", &e.month);
-	read_int("Podaj rok> ", &e.year);
-	read_int("Podaj godzine> ", &e.hour);
-	read_int("Podaj minute> ", &e.minutes);
-	list_add_event(element, &e);
-	printf("Osoba o id: %d zostala dodana",e.id);
+
+	read("\nPodaj id osoby> ");
+	e.id = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj nazwe eventu> ");
+	for (int i = 0; line_buffer[i] != '\0'; i++)
+		e.description[i] = line_buffer[i];
+
+	strcpy(line_buffer, "");
+
+	read("\nPodaj dzien> ");
+	e.day = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj miesiac> ");
+	e.month = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj rok> ");
+	e.year = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj godzine> ");
+	e.hour = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj minute> ");
+	e.minutes = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+
+	printf("\nEvent o id: %d zostala dodana",e.id);
 }
 
 void remove_event(node** element)
 {
 	int event_id;
-	read_int("Podaj id eventu do usuniecia", &event_id);
+	//read_int("Podaj id eventu do usuniecia", &event_id);
 	list_remove_by_id(element, event_id);
 	printf("usunieta wydarzenie");
 }
 
 void menu(){
-	int option;
+	char ch;
 	node* element;
-	do{
-	printf("1 Dodaj event");
-	printf("2 wyswietl liste");
-	printf("3 usun po id");
-	scanf("%d", &option);
-	switch(option)
-	{
-	case 1:
-		add_event(&element);
-		break;
-	case 2:
-		list_print(element);
-		break;
-	case 3:
-		remove_event(&element);
-		break;
-	default:
-		printf("brak opcji");
-	}
 
-	}while(option != 3);
+	do{
+		printf("1 Dodaj event\n");
+		printf("2 wyswietl liste\n");
+		printf("3 usun po id\n");
+		//scanf("%d", &option);
+		while(1){
+			if (HAL_UART_Receive(&huart2, &ch, 1, 0) == HAL_OK){
+				if(ch == '1' || ch == '2') break;
+			}
+		}
+		fflush(stdin);
+		switch(ch)
+		{
+		case '1':
+			add_event(&element);
+			break;
+		case '2':
+			list_print(element);
+			break;
+		case '3':
+			remove_event(&element);
+			break;
+		default:
+			printf("brak opcji");
+		}
+
+	} while(ch != '3');
 }
 
 /* USER CODE END 0 */
@@ -274,6 +332,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
+  menu();
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -282,10 +341,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
+	  //if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
 	        // Button B1 pressed, display menu
-	        menu();
-	      }
+	   //     menu();
+	 // }
   }
   /* USER CODE END 3 */
 }
