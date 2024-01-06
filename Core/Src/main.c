@@ -18,15 +18,16 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
 #include "lcd.h"
 #include "LCD_Keypad.h"
 #include "stdio.h"
 #include <stdio.h>
 #include "stdlib.h"
 #include "string.h"
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -121,6 +122,8 @@ typedef struct tnode
 	event data;
 	struct tnode* next;
 }node;
+
+node* element;
 
 void list_add_event(node** element, event* e)
 {
@@ -325,10 +328,45 @@ void edit_event(node* element)
   printf("Zmodyfikowano dane wydarzenia o id: %d\n", e->id);
 }
 
-void menu(){
-	char ch;
-	node* element;
+void set_reminder(event* e) {
+    // Ustawienie przypomnienia na 5 minut przed wydarzeniem
+    RTC_TimeTypeDef reminder_time;
+    reminder_time.Hours = e->hour;
+    reminder_time.Minutes = e->minutes;
+    reminder_time.Seconds = 0;
+    RTC_DateTypeDef reminder_date;
+    reminder_date.Date = e->day;
+    reminder_date.Month = e->month;
+    reminder_date.Year = e->year;
 
+    // Odejmujemy 5 minut od czasu wydarzenia
+    reminder_time.Minutes -= 5;
+
+    // Sprawdzamy, czy nie przekroczyliśmy wartości 0
+    if (reminder_time.Minutes < 0) {
+        reminder_time.Minutes += 60;
+        reminder_time.Hours--;
+    }
+
+    // Aktualizacja daty, jeśli konieczne
+    if (reminder_time.Hours < 0) {
+        reminder_date.Date--;
+        reminder_time.Hours += 24;
+    }
+
+    // Ustawienie przypomnienia
+  //  HAL_RTC_SetDate(&hrtc, &reminder_date, RTC_FORMAT_BIN);
+  //  HAL_RTC_SetTime(&hrtc, &reminder_time, RTC_FORMAT_BIN);
+}
+
+void display_reminder(char* message) {
+    lcd_print(1, 1, message);
+    HAL_Delay(500);
+    LCD_clear();
+}
+
+void menu(node* element){
+	char ch;
 	do{
 		printf("1 Dodaj event\n");
 		printf("2 wyswietl liste\n");
@@ -353,7 +391,7 @@ void menu(){
 			remove_event(&element);
 			break;
 		case '4':
-			edit_event(&element);
+			edit_event(element);
 		default:
 			printf("brak opcji");
 		}
@@ -395,9 +433,11 @@ int main(void)
   MX_RTC_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  LCD_init();
+  KPAD_init(&hadc1);
+  char tab[17];
+  lcd_init(_LCD_4BIT,_LCD_FONT_5x8, _LCD_2LINE);
   /* USER CODE END 2 */
-  menu();
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -406,10 +446,36 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  //if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
+	  if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
 	        // Button B1 pressed, display menu
-	   //     menu();
-	 // }
+	       menu(element);
+	  }
+
+	  node* current = element;
+	  	while(current)
+	  	{
+	  		set_reminder(current);
+	  		current = current->next;
+	  	}
+
+	  	RTC_TimeTypeDef current_time;
+	  	RTC_DateTypeDef current_date;
+
+	  	HAL_RTC_GetTime(&hrtc, &current_time, RTC_FORMAT_BIN);
+	  	HAL_RTC_GetDate(&hrtc, &current_date, RTC_FORMAT_BIN);
+
+	  	while(element) {
+	  	    if (current->data.day == current_date.Date &&
+	  	    	current->data.month == current_date.Month &&
+				current->data.year == current_date.Year &&
+				current->data.hour == current_time.Hours &&
+				current->data.minutes == current_time.Minutes) {
+	  	        // Nadszedł czas na przypomnienie
+	  	        display_reminder(current->data.description);
+	  	      }
+	  	  current = current->next;
+	  	 }
+
   }
   /* USER CODE END 3 */
 }
@@ -430,10 +496,17 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Configure LSE Drive Capability
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE
+                              |RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
@@ -457,6 +530,10 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  /** Enable MSI Auto calibration
+  */
+  HAL_RCCEx_EnableMSIPLLMode();
 }
 
 /**
@@ -657,12 +734,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PC14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LD2_Pin LCD_D7_Pin LCD_RS_Pin */
   GPIO_InitStruct.Pin = LD2_Pin|LCD_D7_Pin|LCD_RS_Pin;
