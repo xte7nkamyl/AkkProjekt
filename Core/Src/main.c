@@ -340,7 +340,7 @@ void set_reminder(event* e) {
     reminder_date.Year = e->year;
 
     // Odejmujemy 5 minut od czasu wydarzenia
-    reminder_time.Minutes -= 5;
+    reminder_time.Minutes -= 1;
 
     // Sprawdzamy, czy nie przekroczyliśmy wartości 0
     if (reminder_time.Minutes < 0) {
@@ -359,45 +359,52 @@ void set_reminder(event* e) {
   //  HAL_RTC_SetTime(&hrtc, &reminder_time, RTC_FORMAT_BIN);
 }
 
-void display_reminder(char* message) {
-    lcd_print(1, 1, message);
-    HAL_Delay(500);
-    LCD_clear();
-}
 
-void menu(node* element){
+void menu(node** element){
 	char ch;
 	do{
-		printf("1 Dodaj event\n");
+		printf("\n1 Dodaj event\n");
 		printf("2 wyswietl liste\n");
 		printf("3 usun po id\n");
 		printf("4 edytuj po id\n");
 		//scanf("%d", &option);
 		while(1){
 			if (HAL_UART_Receive(&huart2, &ch, 1, 0) == HAL_OK){
-				if(ch == '1' || ch == '2') break;
+				if(ch == '1' || ch == '2' || ch == '3' || ch == '4' || ch == '5') break;
 			}
 		}
 		fflush(stdin);
+
 		switch(ch)
 		{
 		case '1':
-			add_event(&element);
+			add_event(element);
 			break;
 		case '2':
-			list_print(element);
+			list_print(*element);
 			break;
 		case '3':
-			remove_event(&element);
+			remove_event(element);
 			break;
 		case '4':
-			edit_event(element);
+			edit_event(*element);
+			break;
+		case '5':
+			return;
 		default:
 			printf("brak opcji");
+			break;
 		}
 
-	} while(ch != '4');
+	} while(ch != '5');
 }
+
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+  if(GPIO_Pin == B1_Pin)  menu(&element);
+}
+
+
 
 /* USER CODE END 0 */
 
@@ -435,8 +442,16 @@ int main(void)
   /* USER CODE BEGIN 2 */
   LCD_init();
   KPAD_init(&hadc1);
-  char tab[17];
+  HAL_ADC_Start(&hadc1);
   lcd_init(_LCD_4BIT,_LCD_FONT_5x8, _LCD_2LINE);
+
+  RTC_TimeTypeDef RtcTime;
+  RTC_DateTypeDef RtcDate;
+
+  char tab[17];
+
+  char message[17];
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -446,35 +461,45 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
-	        // Button B1 pressed, display menu
-	       menu(element);
-	  }
 
-	  node* current = element;
+	  HAL_ADC_Start(&hadc1);
+	  HAL_Delay(1000);
+
+
+	  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+	  {
+	    lcd_clear();
+	    HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+	    HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+
+
+	    sprintf(tab, "%04d-%02d-%02d %02d:%02d", 2000 + RtcDate.Year, RtcDate.Month, RtcDate.Date, RtcTime.Hours, RtcTime.Minutes);
+
+	    lcd_print(2, 1, tab);
+
+
+	  //if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
+	        // Button B1 pressed, display menu
+	    //   menu(element);
+	  //}
+
+	    node* current = element;
 	  	while(current)
 	  	{
-	  		set_reminder(current);
-	  		current = current->next;
-	  	}
+	  		//set_reminder(current);
 
-	  	RTC_TimeTypeDef current_time;
-	  	RTC_DateTypeDef current_date;
-
-	  	HAL_RTC_GetTime(&hrtc, &current_time, RTC_FORMAT_BIN);
-	  	HAL_RTC_GetDate(&hrtc, &current_date, RTC_FORMAT_BIN);
-
-	  	while(element) {
-	  	    if (current->data.day == current_date.Date &&
-	  	    	current->data.month == current_date.Month &&
-				current->data.year == current_date.Year &&
-				current->data.hour == current_time.Hours &&
-				current->data.minutes == current_time.Minutes) {
+	  	    if (current->data.day == RtcDate.Date &&
+	  	    	current->data.month == RtcDate.Month &&
+				current->data.year == RtcDate.Year + 2000 &&
+				current->data.hour == RtcTime.Hours &&
+				current->data.minutes - 1 == RtcTime.Minutes) {
 	  	        // Nadszedł czas na przypomnienie
-	  	        display_reminder(current->data.description);
+	  	    	lcd_print(1, 1, current->data.description);
 	  	      }
+
 	  	  current = current->next;
 	  	 }
+	  }
 
   }
   /* USER CODE END 3 */
@@ -643,19 +668,19 @@ static void MX_RTC_Init(void)
 
   /** Initialize RTC and set the Time and Date
   */
-  sTime.Hours = 0x0;
-  sTime.Minutes = 0x0;
-  sTime.Seconds = 0x0;
+  sTime.Hours = 0x12;
+  sTime.Minutes = 0x30;
+  sTime.Seconds = 0x10;
   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
   {
     Error_Handler();
   }
-  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+  sDate.WeekDay = RTC_WEEKDAY_TUESDAY;
   sDate.Month = RTC_MONTH_JANUARY;
-  sDate.Date = 0x1;
-  sDate.Year = 0x0;
+  sDate.Date = 0x9;
+  sDate.Year = 0x24;
 
   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
   {
@@ -731,7 +756,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
@@ -755,6 +780,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LCD_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
