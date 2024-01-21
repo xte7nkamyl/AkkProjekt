@@ -121,9 +121,9 @@ char KPAD_IsKeyPressed()
 	{
 		value = HAL_ADC_GetValue(KPAD_hadc);
 
-		if (value < 3900) //3700
+		if (value < 2900) //3700
 			key = KPAD_KEYSELECT;
-		if (value < 3000) //2800
+		if (value < 2700) //2800
 			key = KPAD_KEYLEFT;
 		if (value < 2000) //1800
 			key = KPAD_KEYDOWN;

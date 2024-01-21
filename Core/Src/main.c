@@ -114,6 +114,8 @@ typedef struct tevent{
   int year;
   int hour;
   int minutes;
+  int hour_k;
+  int minutes_k;
   char description[17];
 }event;
 
@@ -137,7 +139,7 @@ void list_print(node* element)
 {
 	while(element)
 	{
-		printf("%d %s %d/%d/%d %d:%d", element->data.id,element->data.description,element->data.day,element->data.month,element->data.year,element->data.hour,element->data.minutes);
+		printf("%d %s %d/%d/%d %d:%d-%d:%d \n", element->data.id,element->data.description,element->data.day,element->data.month,element->data.year,element->data.hour,element->data.minutes,element->data.hour_k,element->data.minutes_k);
 		element = element->next;
 	}
 }
@@ -261,9 +263,20 @@ void add_event(node** element)
 	e.minutes = atoi(line_buffer);
 	strcpy(line_buffer, "");
 
+	read("\nPodaj godzine konca> ");
+	e.hour_k = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
+	read("\nPodaj minute konca> ");
+	e.minutes_k = atoi(line_buffer);
+	strcpy(line_buffer, "");
+
 
 	list_add_event(element, &e);
 	printf("\nEvent o id: %d zostala dodana\n",e.id);
+	 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	 HAL_Delay(3000);
+	 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
 void remove_event(node** element)
@@ -309,22 +322,37 @@ void edit_event(node* element)
   	zmienna = atoi(line_buffer);
   	strcpy(line_buffer, "");
   	e->day = zmienna;
+
   	read("\nPodaj miesiac> ");
   	zmienna = atoi(line_buffer);
   	strcpy(line_buffer, "");
   	e->month = zmienna;
+
   	read("\nPodaj rok> ");
   	zmienna = atoi(line_buffer);
   	strcpy(line_buffer, "");
   	e->year = zmienna;
+
   	read("\nPodaj godzine> ");
   	zmienna = atoi(line_buffer);
   	strcpy(line_buffer, "");
   	e->hour = zmienna;
+
   	read("\nPodaj minute> ");
   	zmienna = atoi(line_buffer);
   	strcpy(line_buffer, "");
   	e->minutes = zmienna;
+
+  	read("\nPodaj godzine> ");
+  	zmienna = atoi(line_buffer);
+    strcpy(line_buffer, "");
+  	 e->hour_k = zmienna;
+
+  	 read("\nPodaj minute> ");
+  	 zmienna = atoi(line_buffer);
+     strcpy(line_buffer, "");
+  	 e->minutes_k = zmienna;
+
   printf("Zmodyfikowano dane wydarzenia o id: %d\n", e->id);
 }
 
@@ -367,6 +395,7 @@ void menu(node** element){
 		printf("2 wyswietl liste\n");
 		printf("3 usun po id\n");
 		printf("4 edytuj po id\n");
+		printf("5 zapisz zmiany\n");
 		//scanf("%d", &option);
 		while(1){
 			if (HAL_UART_Receive(&huart2, &ch, 1, 0) == HAL_OK){
@@ -403,7 +432,6 @@ void menu(node** element){
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
   if(GPIO_Pin == B1_Pin)  menu(&element);
 }
-
 
 
 /* USER CODE END 0 */
@@ -451,7 +479,7 @@ int main(void)
   char tab[17];
 
   char message[17];
-
+  int flaga = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -483,19 +511,65 @@ int main(void)
 	    //   menu(element);
 	  //}
 
+
 	    node* current = element;
 	  	while(current)
 	  	{
 	  		//set_reminder(current);
 
-	  	    if (current->data.day == RtcDate.Date &&
+	  		if(current->data.day == RtcDate.Date &&
+	  	 	  	    	current->data.month == RtcDate.Month &&
+	  	 				current->data.year == RtcDate.Year + 2000 &&
+						current->data.hour_k <= RtcTime.Hours &&
+	  	 				current->data.minutes_k <= RtcTime.Minutes){
+	  			list_remove_by_id(&element, current->data.id);
+	  			 break;
+	  		}
+
+	  		 if (current->data.day == RtcDate.Date &&
+	  			  	 	  	    	current->data.month == RtcDate.Month &&
+	  			  	 				current->data.year == RtcDate.Year + 2000 &&
+	  			  	 				current->data.hour <= RtcTime.Hours &&
+	  			  	 				current->data.minutes <= RtcTime.Minutes &&
+									current->data.hour_k >= RtcTime.Hours &&
+	  			  	 				current->data.minutes_k > RtcTime.Minutes) {
+
+
+	  			  	 	  	        // Nadszedł czas na przypomnienie
+	  			 flaga = 1;
+
+
+	  			  if(KPAD_IsKeyPressed()){
+	  				  int buttonState = KPAD_getkey();
+	  				  if(buttonState == KPAD_KEYSELECT){
+	  					  list_remove_by_id(&element, current->data.id);
+	  					  break;
+	  				  }
+	  			  }
+
+
+	  		 }else if (current->data.day == RtcDate.Date &&
 	  	    	current->data.month == RtcDate.Month &&
 				current->data.year == RtcDate.Year + 2000 &&
 				current->data.hour == RtcTime.Hours &&
 				current->data.minutes - 1 == RtcTime.Minutes) {
 	  	        // Nadszedł czas na przypomnienie
-	  	    	lcd_print(1, 1, current->data.description);
+	  	    	flaga = 2;
 	  	      }
+	  		 else {
+	  			 flaga = 0;
+	  		 }
+
+
+
+	  	    if(flaga == 1){
+	  	    	lcd_print(1, 1, "TRWA: ");
+	  	    	lcd_print(1, 7, current->data.description);
+
+	  	    }else if(flaga == 2){
+	  	    	lcd_print(1, 1, "PRZYP: ");
+	  	    	lcd_print(1, 8, current->data.description);
+	  	    }
 
 	  	  current = current->next;
 	  	 }
