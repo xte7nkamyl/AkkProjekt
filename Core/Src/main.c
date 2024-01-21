@@ -78,34 +78,6 @@ int __io_putchar(int ch)
 
   return 1;
 }
-int __io_getchar(void)
-{
-	char ch;
-	HAL_UART_Receive(&huart2, &ch, 1, HAL_MAX_DELAY);
-	fflush(stdout);
-	//if (ch == '\n') {
-	//return '\n';
-	return ch;
-}
-
-char* __io_gets(char* buffer, int size)
-{
-  int i = 0;
-  char c;
-
-  do {
-    c = __io_getchar();
-    if (c == '\r' || c == '\n') {
-      buffer[i] = '\0';
-    } else {
-      buffer[i] = c;
-      i++;
-    }
-  } while (i < size - 1 && c != '\0' && c != '\r' && c != '\n');
-
-  return buffer;
-}
-
 
 typedef struct tevent{
 	int id;
@@ -480,6 +452,7 @@ int main(void)
 
   char message[17];
   int flaga = 0;
+  int minuta, godzina;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -516,13 +489,21 @@ int main(void)
 	  	while(current)
 	  	{
 	  		//set_reminder(current);
-
+	  		minuta = current->data.minutes-1;
+	  		godzina = current->data.hour;
+	  		if (minuta < 0) {
+	  		        minuta += 60;
+	  		        godzina--;
+	  		    }
 	  		if(current->data.day == RtcDate.Date &&
 	  	 	  	    	current->data.month == RtcDate.Month &&
 	  	 				current->data.year == RtcDate.Year + 2000 &&
 						current->data.hour_k <= RtcTime.Hours &&
 	  	 				current->data.minutes_k <= RtcTime.Minutes){
 	  			list_remove_by_id(&element, current->data.id);
+	  			lcd_print(1, 1, "Zakonczono");
+	  			HAL_Delay(300);
+	  			LCD_clear();
 	  			 break;
 	  		}
 
@@ -543,6 +524,9 @@ int main(void)
 	  				  int buttonState = KPAD_getkey();
 	  				  if(buttonState == KPAD_KEYSELECT){
 	  					  list_remove_by_id(&element, current->data.id);
+	  					  lcd_print(1, 1, "Zakonczono");
+	  					  HAL_Delay(300);
+	  					  LCD_clear();
 	  					  break;
 	  				  }
 	  			  }
@@ -551,8 +535,8 @@ int main(void)
 	  		 }else if (current->data.day == RtcDate.Date &&
 	  	    	current->data.month == RtcDate.Month &&
 				current->data.year == RtcDate.Year + 2000 &&
-				current->data.hour == RtcTime.Hours &&
-				current->data.minutes - 1 == RtcTime.Minutes) {
+				godzina == RtcTime.Hours &&
+				minuta == RtcTime.Minutes) {
 	  	        // Nadszedł czas na przypomnienie
 	  	    	flaga = 2;
 	  	      }
