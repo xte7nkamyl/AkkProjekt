@@ -97,11 +97,11 @@ typedef struct tnode
 	struct tnode* next;
 }node;
 
-node* element;
+node** element;
 
 void list_add_event(node** element, event* e)
 {
-	node* n = (node*)malloc(sizeof(event));
+	node* n = (node*)malloc(sizeof(node));
 	n->data = *e;
 	n->next = *element;
 	*element = n;
@@ -114,6 +114,8 @@ void list_print(node* element)
 		printf("%d %s %d/%d/%d %d:%d-%d:%d \n", element->data.id,element->data.description,element->data.day,element->data.month,element->data.year,element->data.hour,element->data.minutes,element->data.hour_k,element->data.minutes_k);
 		element = element->next;
 	}
+
+
 }
 
 void list_remove_by_id(node** element,int event_id)
@@ -200,56 +202,109 @@ void read(const char* promt)
 	fflush(stdin);
 }
 
+int check_free_time(node* element, int suma_min_p, int suma_min_k)
+{
+	while(element)
+	{
+		int sum_p = element->data.hour*60+element->data.minutes;
+		int sum_k = element->data.hour_k*60+element->data.minutes_k;
+		if((suma_min_p>=sum_p && suma_min_p <=sum_k) )
+		{
+			return 1;
+		}
+		element = element->next;
+	}
+	return 0;
+}
+
 void add_event(node** element)
 {
 	uint8_t value;
 	event e;
+	int suma_min_p,suma_min_k;
+	do{
+		read("\nPodaj id osoby> ");
+		e.id = atoi(line_buffer);
+		strcpy(line_buffer, "");
+	}while(e.id < 1);
 
-	read("\nPodaj id osoby> ");
-	e.id = atoi(line_buffer);
-	strcpy(line_buffer, "");
+	do{
+		read("\nPodaj nazwe eventu> ");
+		for (int i = 0; line_buffer[i] != '\0'; i++)
+			e.description[i] = line_buffer[i];
 
-	read("\nPodaj nazwe eventu> ");
-	for (int i = 0; line_buffer[i] != '\0'; i++)
-		e.description[i] = line_buffer[i];
+		strcpy(line_buffer, "");
+		if (strlen(e.description)<3)
+			printf("Zbyt krotka nazwa wydarzenia \n");
+	}while(strlen(e.description)<3);
 
-	strcpy(line_buffer, "");
+	do{
+		read("\nPodaj dzien> ");
+		e.day = atoi(line_buffer);
+		strcpy(line_buffer, "");
+		if (e.day <1 || e.day>31)
+			printf("Nie ma takiego dnia \n");
+	}while(e.day <1 || e.day>31);
 
-	read("\nPodaj dzien> ");
-	e.day = atoi(line_buffer);
-	strcpy(line_buffer, "");
+	do{
+		read("\nPodaj miesiac> ");
+		e.month = atoi(line_buffer);
+		strcpy(line_buffer, "");
+		if (e.month<1 || e.month>12)
+			printf("Nie ma takiego miesiaca \n");
+	}while(e.month<1 || e.month>12);
+	do{
+		read("\nPodaj rok> ");
+		e.year = atoi(line_buffer);
+		strcpy(line_buffer, "");
+	}while(e.year<2024);
+	int x=0;
+	do{
+		do{
+	      read("\nPodaj godzine> ");
+	      e.hour = atoi(line_buffer);
+	      strcpy(line_buffer, "");
+	      if(e.hour>23 || e.hour<0)
+	    	  printf("Niewlasciwa godzina \n");
+	     }while(e.hour>23 || e.hour<0);
+	    do{
+	      read("\nPodaj minute ");
+	      e.minutes = atoi(line_buffer);
+	      strcpy(line_buffer, "");
+	      if(e.minutes>59 || e.minutes<0)
+	      	  printf("Niewlasciwa minuta \n");
+	     } while(e.minutes>59 || e.minutes<0);
+	    suma_min_p = e.hour*60+e.minutes;
 
-	read("\nPodaj miesiac> ");
-	e.month = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
-	read("\nPodaj rok> ");
-	e.year = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
-	read("\nPodaj godzine> ");
-	e.hour = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
-	read("\nPodaj minute> ");
-	e.minutes = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
-	read("\nPodaj godzine konca> ");
-	e.hour_k = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
-	read("\nPodaj minute konca> ");
-	e.minutes_k = atoi(line_buffer);
-	strcpy(line_buffer, "");
-
+	 do
+	    {
+	    do{
+	      read("\nPodaj godzine konca> ");
+	      e.hour_k = atoi(line_buffer);
+	      strcpy(line_buffer, "");
+	      if(e.hour_k>23 || e.hour_k<0)
+	    	  printf("Niewlasciwa godzina \n");
+	     } while(e.hour_k>23 || e.hour_k<0);
+	    do{
+	      read("\nPodaj minute konca> ");
+	      e.minutes_k = atoi(line_buffer);
+	      strcpy(line_buffer, "");
+	      if(e.minutes_k>59 || e.minutes_k<0)
+	      	  printf("Niewlasciwa minuta \n");
+	     } while(e.minutes_k>59 || e.minutes_k<0);
+	      suma_min_k = e.hour_k*60+e.minutes_k;
+	      if(suma_min_p>suma_min_k)
+	    	  printf("Czas konca wydarzenia jest mniejszy niz jego poczatek \n");
+	    }while(suma_min_p>suma_min_k);
+	 x = check_free_time(*element, suma_min_p,suma_min_k);
+	 if(x == 1)
+		 printf("Zajety termin \n");
+	}while(x==1);
 
 	list_add_event(element, &e);
 	printf("\nEvent o id: %d zostala dodana\n",e.id);
-	 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-	 HAL_Delay(3000);
-	 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
+
 
 void remove_event(node** element)
 {
@@ -273,6 +328,7 @@ void edit_event(node* element)
   int id;
   char tab[17];
   int zmienna;
+  int suma_min_p,suma_min_k;
   read("\nPodaj id osoby> ");
   id = atoi(line_buffer);
   strcpy(line_buffer, "");
@@ -282,87 +338,94 @@ void edit_event(node* element)
     printf("Brak wydarzenia o id: %d\n",id);
     return;
   }
+  do{
+  		read("\nPodaj nazwe eventu> ");
+  		for (int i = 0; line_buffer[i] != '\0'; i++)
+  			tab[i] = line_buffer[i];
 
-  read("\nPodaj nazwe eventu> ");
-  for (int i = 0; line_buffer[i] != '\0'; i++)
-	  tab[i] = line_buffer[i];
+  		strcpy(line_buffer, "");
+  		if (strlen(tab)<3)
+  			printf("Zbyt krotka nazwa wydarzenia \n");
+  	}while(strlen(tab)<3);
+  	strcpy(e->description,tab);
 
-  strcpy(line_buffer, "");
-  strcpy(e->description,tab);
-
-  	read("\nPodaj dzien> ");
-  	zmienna = atoi(line_buffer);
-  	strcpy(line_buffer, "");
+  	do{
+  		read("\nPodaj dzien> ");
+  		zmienna = atoi(line_buffer);
+  		strcpy(line_buffer, "");
+  		if (zmienna <1 || zmienna>31)
+  			printf("Nie ma takiego dnia \n");
+  	}while(zmienna <1 || zmienna>31);
   	e->day = zmienna;
 
-  	read("\nPodaj miesiac> ");
-  	zmienna = atoi(line_buffer);
-  	strcpy(line_buffer, "");
+  	do{
+  		read("\nPodaj miesiac> ");
+  		zmienna = atoi(line_buffer);
+  		strcpy(line_buffer, "");
+  		if (zmienna<1 || zmienna>12)
+  			printf("Nie ma takiego miesiaca \n");
+  	}while(zmienna<1 || zmienna>12);
   	e->month = zmienna;
-
-  	read("\nPodaj rok> ");
-  	zmienna = atoi(line_buffer);
-  	strcpy(line_buffer, "");
+  	do{
+  		read("\nPodaj rok> ");
+  		zmienna = atoi(line_buffer);
+  		strcpy(line_buffer, "");
+  	}while(zmienna<2024);
   	e->year = zmienna;
 
-  	read("\nPodaj godzine> ");
-  	zmienna = atoi(line_buffer);
-  	strcpy(line_buffer, "");
-  	e->hour = zmienna;
+  	int x=0;
+  	do{
+  		do{
+  		    read("\nPodaj godzine> ");
+  		    zmienna = atoi(line_buffer);
+  		    strcpy(line_buffer, "");
+  		    if(zmienna>23 || zmienna<0)
+  		    	  printf("Niewlasciwa godzina \n");
+  		  }while(zmienna>23 || zmienna<0);
+  		e->hour = zmienna;
+  		  do{
+  		      read("\nPodaj minute ");
+  		      zmienna = atoi(line_buffer);
+  		      strcpy(line_buffer, "");
+  		      if(zmienna>59 || zmienna<0)
+  		      	  printf("Niewlasciwa minuta \n");
+  		     } while(zmienna>59 || zmienna<0);
+  		  e->minutes = zmienna;
+  		    suma_min_p = e->hour*60+e->minutes;
 
-  	read("\nPodaj minute> ");
-  	zmienna = atoi(line_buffer);
-  	strcpy(line_buffer, "");
-  	e->minutes = zmienna;
-
-  	read("\nPodaj godzine> ");
-  	zmienna = atoi(line_buffer);
-    strcpy(line_buffer, "");
-  	 e->hour_k = zmienna;
-
-  	 read("\nPodaj minute> ");
-  	 zmienna = atoi(line_buffer);
-     strcpy(line_buffer, "");
-  	 e->minutes_k = zmienna;
+  		 do {
+  		    do{
+  		      read("\nPodaj godzine konca> ");
+  		      zmienna = atoi(line_buffer);
+  		      strcpy(line_buffer, "");
+  		      if(zmienna>23 || zmienna<0)
+  		    	  printf("Niewlasciwa godzina \n");
+  		     } while(zmienna>23 || zmienna<0);
+  		    e->hour_k = zmienna;
+  		    do{
+  		      read("\nPodaj minute konca> ");
+  		      zmienna = atoi(line_buffer);
+  		      strcpy(line_buffer, "");
+  		      if(zmienna>59 || zmienna<0)
+  		      	  printf("Niewlasciwa minuta \n");
+  		     } while(zmienna>59 || zmienna<0);
+  		    e->minutes_k = zmienna;
+  		      suma_min_k = e->hour_k*60+e->minutes_k;
+  		      if(suma_min_p>suma_min_k)
+  		    	  printf("Czas konca wydarzenia jest mniejszy niz jego poczatek \n");
+  		    }while(suma_min_p>suma_min_k);
+  		 x = check_free_time(element, suma_min_p,suma_min_k);
+  		 if(x == 1)
+  			 printf("Zajety termin \n");
+  		}while(x==1);
 
   printf("Zmodyfikowano dane wydarzenia o id: %d\n", e->id);
 }
 
-void set_reminder(event* e) {
-    // Ustawienie przypomnienia na 5 minut przed wydarzeniem
-    RTC_TimeTypeDef reminder_time;
-    reminder_time.Hours = e->hour;
-    reminder_time.Minutes = e->minutes;
-    reminder_time.Seconds = 0;
-    RTC_DateTypeDef reminder_date;
-    reminder_date.Date = e->day;
-    reminder_date.Month = e->month;
-    reminder_date.Year = e->year;
-
-    // Odejmujemy 5 minut od czasu wydarzenia
-    reminder_time.Minutes -= 1;
-
-    // Sprawdzamy, czy nie przekroczyliśmy wartości 0
-    if (reminder_time.Minutes < 0) {
-        reminder_time.Minutes += 60;
-        reminder_time.Hours--;
-    }
-
-    // Aktualizacja daty, jeśli konieczne
-    if (reminder_time.Hours < 0) {
-        reminder_date.Date--;
-        reminder_time.Hours += 24;
-    }
-
-    // Ustawienie przypomnienia
-  //  HAL_RTC_SetDate(&hrtc, &reminder_date, RTC_FORMAT_BIN);
-  //  HAL_RTC_SetTime(&hrtc, &reminder_time, RTC_FORMAT_BIN);
-}
-
-
 void menu(node** element){
 	char ch;
 	do{
+
 		printf("\n1 Dodaj event\n");
 		printf("2 wyswietl liste\n");
 		printf("3 usun po id\n");
@@ -449,10 +512,12 @@ int main(void)
   RTC_DateTypeDef RtcDate;
 
   char tab[17];
-
+  char description1[17];
+  		char description2[17];
   char message[17];
   int flaga = 0;
-  int minuta, godzina;
+  int stan=1;
+  int minuta, godzina,suma_minut_p, suma_minut_k, suma_minut_zegara;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -460,35 +525,57 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-
-	  HAL_ADC_Start(&hadc1);
-	  HAL_Delay(1000);
-
-
+     HAL_ADC_Start(&hadc1);
+	 HAL_Delay(1000);
 	  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
 	  {
+		 if(KPAD_IsKeyPressed()){
+		  	 int buttonState2 = KPAD_getkey();
+		  	 if(buttonState2 == KPAD_KEYRIGHT){
+		  		 if(stan ==1)
+		  			 stan = 0;
+		  	  	  else
+		  	  			stan =1;
+		  	  	}
+		    }
+		if(stan ==0){
+			lcd_clear();
+		    node* current2 = element;
+		    while(current2){
+		 		  strcpy(description2,current2->data.description);
+		 		  lcd_print(1, 1, description1);
+		 		  lcd_print(2, 1,description2);
+		 		  if(KPAD_IsKeyPressed()){
+		 		 	int buttonState3 = KPAD_getkey();
+		 		 	if(buttonState3 == KPAD_KEYDOWN){
+		 		 		current2 = current2->next;
+		 		 	 	strcpy(description1 ,description2);
+		 		 	 	if (current2 == NULL) {
+		 		 	 		current2 = element;
+		 		 	 	}
+		 		 	}else if(buttonState3 == KPAD_KEYRIGHT)
+		 		 	{
+		 		 		stan=1;
+		 		 		break;
+		 		 	}
+		 		  }
+		    }
+		 }
+		 else if(stan == 1){
 	    lcd_clear();
 	    HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
 	    HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-
 	    sprintf(tab, "%04d-%02d-%02d %02d:%02d", 2000 + RtcDate.Year, RtcDate.Month, RtcDate.Date, RtcTime.Hours, RtcTime.Minutes);
-
 	    lcd_print(2, 1, tab);
-
-
-	  //if (HAL_GPIO_ReadPin(GPIOC, B1_Pin) == GPIO_PIN_SET) {
-	        // Button B1 pressed, display menu
-	    //   menu(element);
-	  //}
-
 
 	    node* current = element;
 	  	while(current)
 	  	{
-	  		//set_reminder(current);
+	  		suma_minut_zegara = RtcTime.Hours*60+RtcTime.Minutes;
+	  		suma_minut_p = current->data.hour*60+current->data.minutes;
+	  		suma_minut_k = current->data.hour_k*60+current->data.minutes_k;
 	  		minuta = current->data.minutes-1;
 	  		godzina = current->data.hour;
 	  		if (minuta < 0) {
@@ -498,11 +585,10 @@ int main(void)
 	  		if(current->data.day == RtcDate.Date &&
 	  	 	  	    	current->data.month == RtcDate.Month &&
 	  	 				current->data.year == RtcDate.Year + 2000 &&
-						current->data.hour_k <= RtcTime.Hours &&
-	  	 				current->data.minutes_k <= RtcTime.Minutes){
+						suma_minut_k <= suma_minut_zegara){
 	  			list_remove_by_id(&element, current->data.id);
 	  			lcd_print(1, 1, "Zakonczono");
-	  			HAL_Delay(300);
+	  			HAL_Delay(1000);
 	  			LCD_clear();
 	  			 break;
 	  		}
@@ -510,41 +596,30 @@ int main(void)
 	  		 if (current->data.day == RtcDate.Date &&
 	  			  	 	  	    	current->data.month == RtcDate.Month &&
 	  			  	 				current->data.year == RtcDate.Year + 2000 &&
-	  			  	 				current->data.hour <= RtcTime.Hours &&
-	  			  	 				current->data.minutes <= RtcTime.Minutes &&
-									current->data.hour_k >= RtcTime.Hours &&
-	  			  	 				current->data.minutes_k > RtcTime.Minutes) {
+	  			  	 				suma_minut_p <= suma_minut_zegara &&
+	  			  	 				suma_minut_k >= suma_minut_zegara) {
 
-
-	  			  	 	  	        // Nadszedł czas na przypomnienie
 	  			 flaga = 1;
-
-
 	  			  if(KPAD_IsKeyPressed()){
 	  				  int buttonState = KPAD_getkey();
 	  				  if(buttonState == KPAD_KEYSELECT){
 	  					  list_remove_by_id(&element, current->data.id);
 	  					  lcd_print(1, 1, "Zakonczono");
-	  					  HAL_Delay(300);
+	  					  HAL_Delay(1000);
 	  					  LCD_clear();
 	  					  break;
 	  				  }
 	  			  }
-
-
 	  		 }else if (current->data.day == RtcDate.Date &&
 	  	    	current->data.month == RtcDate.Month &&
 				current->data.year == RtcDate.Year + 2000 &&
 				godzina == RtcTime.Hours &&
 				minuta == RtcTime.Minutes) {
-	  	        // Nadszedł czas na przypomnienie
 	  	    	flaga = 2;
 	  	      }
 	  		 else {
 	  			 flaga = 0;
 	  		 }
-
-
 
 	  	    if(flaga == 1){
 	  	    	lcd_print(1, 1, "TRWA: ");
@@ -558,6 +633,7 @@ int main(void)
 	  	  current = current->next;
 	  	 }
 	  }
+	 }
 
   }
   /* USER CODE END 3 */
@@ -727,7 +803,7 @@ static void MX_RTC_Init(void)
   /** Initialize RTC and set the Time and Date
   */
   sTime.Hours = 0x12;
-  sTime.Minutes = 0x30;
+  sTime.Minutes = 0x58;
   sTime.Seconds = 0x10;
   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
